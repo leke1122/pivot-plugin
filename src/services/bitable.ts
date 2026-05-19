@@ -8,7 +8,8 @@ import {
 import type { FieldInfo, FlatRow } from '@/types'
 import { normalizeCellValue } from '@/lib/cellValue'
 
-const PAGE_SIZE = 500
+/** 飞书 SDK 单次记录操作上限为 200（见 SingleRecordOperationLimitExceeded） */
+const PAGE_SIZE = 200
 
 export function toFieldInfo(meta: IFieldMeta): FieldInfo {
   return {
@@ -28,23 +29,14 @@ export async function getTableRecordTotal(table: ITable): Promise<number> {
   return res.total
 }
 
-/** 按审核规范：选记录数最多的表；全无记录则第一张 */
+/** 优先当前表；否则用第一张表（避免初始化时遍历全库触发限流） */
 export async function pickDefaultTableId(
   tableMetas: ITableMeta[],
 ): Promise<string | null> {
   if (!tableMetas.length) return null
-  let bestId = tableMetas[0].id
-  let bestCount = -1
-
-  for (const meta of tableMetas) {
-    const table = await bitable.base.getTable(meta.id)
-    const total = await getTableRecordTotal(table)
-    if (total > bestCount) {
-      bestCount = total
-      bestId = meta.id
-    }
-  }
-  return bestId
+  const activeId = await getActiveTableId()
+  if (activeId && tableMetas.some((t) => t.id === activeId)) return activeId
+  return tableMetas[0].id
 }
 
 export async function loadAllRecords(

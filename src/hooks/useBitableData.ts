@@ -61,7 +61,12 @@ export function useBitableData(): BitableDataState {
       setRecordTotal(data.length)
     } catch (e) {
       if (token !== reloadToken.current) return
-      setError(e instanceof Error ? e.message : '加载数据失败')
+      const msg = e instanceof Error ? e.message : '加载数据失败'
+      setError(
+        msg.includes('records limit') || msg.includes('200')
+          ? '读取记录失败：单次最多拉取 200 条，请缩小数据范围或联系开发者优化分页。'
+          : msg,
+      )
     } finally {
       if (token === reloadToken.current) setLoading(false)
     }
