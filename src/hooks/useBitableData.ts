@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { bitable, type ITable, type ITableMeta } from '@lark-base-open/js-sdk'
 import type { FieldInfo, FlatRow } from '@/types'
 import {
+  MAX_RECORDS,
   getActiveTableId,
   listTables,
   loadAllRecords,
@@ -20,6 +21,8 @@ export interface BitableDataState {
   fields: FieldInfo[]
   rows: FlatRow[]
   recordTotal: number
+  loadProgress: { loaded: number; total: number; page: number } | null
+  truncated: boolean
   reload: () => void
   setTableId: (id: string) => void
 }
@@ -33,6 +36,12 @@ export function useBitableData(): BitableDataState {
   const [fields, setFields] = useState<FieldInfo[]>([])
   const [rows, setRows] = useState<FlatRow[]>([])
   const [recordTotal, setRecordTotal] = useState(0)
+  const [loadProgress, setLoadProgress] = useState<{
+    loaded: number
+    total: number
+    page: number
+  } | null>(null)
+  const [truncated, setTruncated] = useState(false)
   const tableRef = useRef<ITable | null>(null)
   const reloadToken = useRef(0)
 
@@ -40,6 +49,8 @@ export function useBitableData(): BitableDataState {
     const token = ++reloadToken.current
     setLoading(true)
     setError(null)
+    setTruncated(false)
+    setLoadProgress(null)
     try {
       const table = await bitable.base.getTable(targetId)
       tableRef.current = table
@@ -48,8 +59,10 @@ export function useBitableData(): BitableDataState {
       const fieldList = metas.map(toFieldInfo)
       const fieldIds = fieldList.map((f) => f.id)
 
-      const data = await loadAllRecords(table, fieldIds, (_loaded, total) => {
-        if (token === reloadToken.current) setRecordTotal(total)
+      const data = await loadAllRecords(table, fieldIds, (p) => {
+        if (token !== reloadToken.current) return
+        setLoadProgress(p)
+        setRecordTotal(p.total)
       })
 
       if (token !== reloadToken.current) return
@@ -59,6 +72,8 @@ export function useBitableData(): BitableDataState {
       setFields(fieldList)
       setRows(data)
       setRecordTotal(data.length)
+      setTruncated(data.length >= MAX_RECORDS)
+      setLoadProgress(null)
     } catch (e) {
       if (token !== reloadToken.current) return
       const msg = e instanceof Error ? e.message : '加载数据失败'
@@ -137,6 +152,8 @@ export function useBitableData(): BitableDataState {
     fields,
     rows,
     recordTotal,
+    loadProgress,
+    truncated,
     reload,
     setTableId,
   }

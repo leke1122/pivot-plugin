@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useBitableData } from '@/hooks/useBitableData'
+import { MAX_RECORDS } from '@/services/bitable'
 import { usePivotConfig } from '@/hooks/usePivotConfig'
 import { buildPivot, emptyPivot } from '@/lib/pivotEngine'
 import { PivotSidebar } from '@/components/PivotSidebar'
@@ -31,7 +32,10 @@ function App() {
           <h1>多维表透视分析</h1>
           <p className="app-header__meta">
             {data.tableName ? `当前表：${data.tableName}` : '未选择数据表'}
-            {data.recordTotal > 0 && ` · ${data.recordTotal.toLocaleString()} 条记录`}
+            {data.loadProgress
+              ? ` · 正在加载 ${data.loadProgress.loaded.toLocaleString()} / ${data.loadProgress.total.toLocaleString()}（第 ${data.loadProgress.page} 批，每批 200 条）`
+              : data.recordTotal > 0 &&
+                ` · 已加载 ${data.recordTotal.toLocaleString()} 条${data.truncated ? `（已达上限 ${MAX_RECORDS.toLocaleString()} 条）` : '（全部分页已合并）'}`}
           </p>
         </div>
         <div className="app-header__actions">

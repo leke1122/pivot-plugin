@@ -9,7 +9,16 @@ import type { FieldInfo, FlatRow } from '@/types'
 import { normalizeCellValue } from '@/lib/cellValue'
 
 /** 飞书 SDK 单次记录操作上限为 200（见 SingleRecordOperationLimitExceeded） */
-const PAGE_SIZE = 200
+export const PAGE_SIZE = 200
+
+/** 浏览器端透视分析上限，防止超大表卡死 */
+export const MAX_RECORDS = 50_000
+
+export interface LoadRecordsProgress {
+  loaded: number
+  total: number
+  page: number
+}
 
 export function toFieldInfo(meta: IFieldMeta): FieldInfo {
   return {
@@ -39,28 +48,42 @@ export async function pickDefaultTableId(
   return tableMetas[0].id
 }
 
+/**
+ * 分页拉取全表：每批最多 200 条，累积到内存后再做透视（符合 SDK 限制）。
+ */
 export async function loadAllRecords(
   table: ITable,
   fieldIds: string[],
-  onProgress?: (loaded: number, total: number) => void,
+  onProgress?: (progress: LoadRecordsProgress) => void,
 ): Promise<FlatRow[]> {
   const rows: FlatRow[] = []
   let pageToken: number | undefined
   let total = 0
+  let page = 0
 
-  do {
+  while (true) {
+    page += 1
     const res = await table.getRecordsByPage({
       pageSize: PAGE_SIZE,
       pageToken,
       stringValue: true,
     })
     total = res.total
+
     for (const record of res.records) {
       rows.push(recordToFlatRow(record, fieldIds))
+      if (rows.length >= MAX_RECORDS) {
+        onProgress?.({ loaded: rows.length, total, page })
+        return rows
+      }
     }
-    onProgress?.(rows.length, total)
-    pageToken = res.hasMore ? res.pageToken : undefined
-  } while (pageToken !== undefined)
+
+    onProgress?.({ loaded: rows.length, total, page })
+
+    if (!res.hasMore) break
+    if (res.pageToken === undefined || res.pageToken === pageToken) break
+    pageToken = res.pageToken
+  }
 
   return rows
 }
