@@ -69,7 +69,11 @@ function App() {
       <main className="app-main">
         <section className="app-main__content">
           {data.loading && !data.rows.length ? (
-            <div className="pivot-loading">正在读取多维表格数据…</div>
+            <div className="pivot-loading">
+              {data.loadProgress
+                ? `正在分页读取… ${data.loadProgress.loaded} / ${data.loadProgress.total}（第 ${data.loadProgress.page} 批，每批 200 条）`
+                : '正在读取多维表格数据…'}
+            </div>
           ) : (
             <PivotTableView
               result={pivotResult}
