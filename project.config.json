@@ -1,0 +1,9 @@
+{
+  "appid": "cli_aa86a1bceb3ddbb4",
+  "projectname": "feishu-bitable-pivot",
+  "blocks": ["block/index"],
+  "setting": {
+    "es6": false,
+    "minified": false
+  }
+}
